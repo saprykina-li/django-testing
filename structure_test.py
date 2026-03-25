@@ -7,8 +7,8 @@ sys.path.append(BASE_DIR)
 
 PathForTests = namedtuple('TestPaths', ('rel_path', 'abs_path'))
 
-ya_note_tests = BASE_DIR / 'ya_note/notes/tests/'
-ya_news_tests = BASE_DIR / 'ya_news/news/pytest_tests/'
+ya_note_tests = BASE_DIR / 'ya-note/notes/tests/'
+ya_news_tests = BASE_DIR / 'ya-news/news/pytest_tests/'
 
 message_template = (
     '\nНе обнаружены тесты для проекта `{project}`. Убедитесь, что тесты, '
@@ -17,10 +17,10 @@ message_template = (
 
 projects_map = {
     'ya_note': PathForTests(
-        'django_testing/ya_note/notes/tests', ya_note_tests
+        'django_testing/ya-note/notes/tests', ya_note_tests
     ),
     'ya_news': PathForTests(
-        'django_testing/ya_news/news/pytest_tests', ya_news_tests
+        'django_testing/ya-news/news/pytest_tests', ya_news_tests
     )
 }
 

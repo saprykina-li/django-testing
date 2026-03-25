@@ -21,13 +21,15 @@ then
     echo $LF 1>&2
     if python structure_test.py
     then
-        cd ya_news
+        cd ya-news
         export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:="yanews.settings"}"
+        export PYTHONPATH=.
         if pytest --tb=line 1>&2;
         then
-            cd ../ya_note
+            cd ../ya-note
             unset DJANGO_SETTINGS_MODULE
             export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:="yanote.settings"}"
+            export PYTHONPATH=.
             if pytest --tb=line 1>&2;
             then
                 exit 0
