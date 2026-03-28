@@ -1,97 +1,108 @@
 from http import HTTPStatus
 
-from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
-from django.urls import reverse
+import pytest
+from django.test import Client
+from pytest_django.asserts import assertFormError, assertRedirects
 
 from news.forms import BAD_WORDS, WARNING
-from news.models import Comment, News
+from news.models import Comment
 
-User = get_user_model()
-
-
-class TestCommentCreation(TestCase):
-    COMMENT_TEXT = 'Текст комментария'
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.news = News.objects.create(title='Заголовок', text='Текст')
-        cls.url = reverse('news:detail', args=(cls.news.id,))
-        cls.user = User.objects.create(username='Мимо Крокодил')
-        cls.auth_client = Client()
-        cls.auth_client.force_login(cls.user)
-        cls.form_data = {'text': cls.COMMENT_TEXT}
-
-    def test_anonymous_user_cant_create_comment(self):
-        self.client.post(self.url, data=self.form_data)
-        self.assertEqual(Comment.objects.count(), 0)
-
-    def test_user_can_create_comment(self):
-        response = self.auth_client.post(self.url, data=self.form_data)
-        self.assertRedirects(response, f'{self.url}#comments')
-        self.assertEqual(Comment.objects.count(), 1)
-        comment = Comment.objects.get()
-        self.assertEqual(comment.text, self.COMMENT_TEXT)
-        self.assertEqual(comment.news, self.news)
-        self.assertEqual(comment.author, self.user)
-
-    def test_user_cant_use_bad_words(self):
-        bad_words_data = {
-            'text': f'Какой-то текст, {BAD_WORDS[0]}, еще текст',
-        }
-        response = self.auth_client.post(self.url, data=bad_words_data)
-        form = response.context['form']
-        self.assertFormError(
-            form=form,
-            field='text',
-            errors=WARNING,
-        )
-        self.assertEqual(Comment.objects.count(), 0)
+COMMENT_TEXT = 'Текст комментария'
+NEW_COMMENT_TEXT = 'Обновлённый комментарий'
 
 
-class TestCommentEditDelete(TestCase):
-    COMMENT_TEXT = 'Текст комментария'
-    NEW_COMMENT_TEXT = 'Обновлённый комментарий'
+@pytest.mark.django_db
+def test_anonymous_user_cant_create_comment(client, news_comment_context):
+    url = news_comment_context['url']
+    form_data = {'text': COMMENT_TEXT}
+    client.post(url, data=form_data)
+    assert Comment.objects.count() == 0
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.news = News.objects.create(title='Заголовок', text='Текст')
-        news_url = reverse('news:detail', args=(cls.news.id,))
-        cls.url_to_comments = news_url + '#comments'
-        cls.author = User.objects.create(username='Автор комментария')
-        cls.author_client = Client()
-        cls.author_client.force_login(cls.author)
-        cls.reader = User.objects.create(username='Читатель')
-        cls.reader_client = Client()
-        cls.reader_client.force_login(cls.reader)
-        cls.comment = Comment.objects.create(
-            news=cls.news,
-            author=cls.author,
-            text=cls.COMMENT_TEXT,
-        )
-        cls.edit_url = reverse('news:edit', args=(cls.comment.id,))
-        cls.delete_url = reverse('news:delete', args=(cls.comment.id,))
-        cls.form_data = {'text': cls.NEW_COMMENT_TEXT}
 
-    def test_author_can_delete_comment(self):
-        response = self.author_client.delete(self.delete_url)
-        self.assertRedirects(response, self.url_to_comments)
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        self.assertEqual(Comment.objects.count(), 0)
+@pytest.mark.django_db
+def test_user_can_create_comment(news_comment_context):
+    news = news_comment_context['news']
+    user = news_comment_context['user']
+    url = news_comment_context['url']
+    auth_client = Client()
+    auth_client.force_login(user)
+    form_data = {'text': COMMENT_TEXT}
+    response = auth_client.post(url, data=form_data)
+    assertRedirects(response, f'{url}#comments', fetch_redirect_response=False)
+    assert Comment.objects.count() == 1
+    comment = Comment.objects.get()
+    assert comment.text == COMMENT_TEXT
+    assert comment.news == news
+    assert comment.author == user
 
-    def test_user_cant_delete_comment_of_another_user(self):
-        response = self.reader_client.delete(self.delete_url)
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-        self.assertEqual(Comment.objects.count(), 1)
 
-    def test_author_can_edit_comment(self):
-        response = self.author_client.post(self.edit_url, data=self.form_data)
-        self.assertRedirects(response, self.url_to_comments)
-        self.comment.refresh_from_db()
-        self.assertEqual(self.comment.text, self.NEW_COMMENT_TEXT)
+@pytest.mark.django_db
+def test_user_cant_use_bad_words(news_comment_context):
+    user = news_comment_context['user']
+    url = news_comment_context['url']
+    auth_client = Client()
+    auth_client.force_login(user)
+    bad_words_data = {
+        'text': f'Какой-то текст, {BAD_WORDS[0]}, еще текст',
+    }
+    response = auth_client.post(url, data=bad_words_data)
+    assertFormError(response.context['form'], 'text', WARNING)
+    assert Comment.objects.count() == 0
 
-    def test_user_cant_edit_comment_of_another_user(self):
-        response = self.reader_client.post(self.edit_url, data=self.form_data)
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-        self.comment.refresh_from_db()
-        self.assertEqual(self.comment.text, self.COMMENT_TEXT)
+
+@pytest.mark.django_db
+def test_author_can_delete_comment(comment_edit_scenario):
+    author_client = comment_edit_scenario['author_client']
+    delete_url = comment_edit_scenario['delete_url']
+    url_to_comments = comment_edit_scenario['url_to_comments']
+    response = author_client.delete(delete_url)
+    assertRedirects(
+        response,
+        url_to_comments,
+        fetch_redirect_response=False,
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    assert Comment.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_user_cant_delete_comment_of_another_user(comment_edit_scenario):
+    reader_client = comment_edit_scenario['reader_client']
+    delete_url = comment_edit_scenario['delete_url']
+    comment = comment_edit_scenario['comment']
+    author = comment_edit_scenario['author']
+    reader_client.delete(delete_url)
+    assert Comment.objects.count() == 1
+    comment.refresh_from_db()
+    assert comment.text == COMMENT_TEXT
+    assert comment.author == author
+
+
+@pytest.mark.django_db
+def test_author_can_edit_comment(comment_edit_scenario):
+    author_client = comment_edit_scenario['author_client']
+    edit_url = comment_edit_scenario['edit_url']
+    url_to_comments = comment_edit_scenario['url_to_comments']
+    comment = comment_edit_scenario['comment']
+    form_data = {'text': NEW_COMMENT_TEXT}
+    response = author_client.post(edit_url, data=form_data)
+    assertRedirects(
+        response,
+        url_to_comments,
+        fetch_redirect_response=False,
+    )
+    comment.refresh_from_db()
+    assert comment.text == NEW_COMMENT_TEXT
+
+
+@pytest.mark.django_db
+def test_user_cant_edit_comment_of_another_user(comment_edit_scenario):
+    reader_client = comment_edit_scenario['reader_client']
+    edit_url = comment_edit_scenario['edit_url']
+    comment = comment_edit_scenario['comment']
+    author = comment_edit_scenario['author']
+    form_data = {'text': NEW_COMMENT_TEXT}
+    reader_client.post(edit_url, data=form_data)
+    comment.refresh_from_db()
+    assert comment.text == COMMENT_TEXT
+    assert comment.author == author

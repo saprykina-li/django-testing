@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django.urls import reverse
 
 from notes.models import Note
@@ -6,35 +8,49 @@ from notes.tests.base import BaseNoteTestCase
 
 
 class TestContent(BaseNoteTestCase):
-    """Контекст шаблонов и данные в object_list."""
 
-    def test_note_in_object_list_on_list_page(self):
-        self.client.force_login(self.author)
-        response = self.client.get(reverse('notes:list'))
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(self.note, response.context['object_list'])
-
-    def test_list_does_not_include_other_users_notes(self):
-        foreign = Note.objects.create(
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.foreign_note = Note.objects.create(
             title='Чужая заметка',
             text='Текст',
             slug='foreign-slug',
-            author=self.other,
+            author=cls.other,
         )
-        self.client.force_login(self.author)
-        response = self.client.get(reverse('notes:list'))
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(self.note, response.context['object_list'])
-        self.assertNotIn(foreign, response.context['object_list'])
 
-    def test_create_and_edit_pages_have_forms_in_context(self):
+    def test_note_in_object_list_on_list_page(self):
         self.client.force_login(self.author)
-        response = self.client.get(reverse('notes:add'))
-        self.assertEqual(response.status_code, 200)
+        list_url = reverse('notes:list')
+
+        response = self.client.get(list_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertIn(self.note, response.context['object_list'])
+
+    def test_list_does_not_include_other_users_notes(self):
+        self.client.force_login(self.author)
+        list_url = reverse('notes:list')
+
+        response = self.client.get(list_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertNotIn(self.foreign_note, response.context['object_list'])
+
+    def test_add_page_has_form_in_context(self):
+        self.client.force_login(self.author)
+        add_url = reverse('notes:add')
+
+        response = self.client.get(add_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertIsInstance(response.context['form'], NoteForm)
 
-        response = self.client.get(
-            reverse('notes:edit', kwargs={'slug': self.note.slug}),
-        )
-        self.assertEqual(response.status_code, 200)
+    def test_edit_page_has_form_in_context(self):
+        self.client.force_login(self.author)
+        edit_url = reverse('notes:edit', kwargs={'slug': self.note.slug})
+
+        response = self.client.get(edit_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertIsInstance(response.context['form'], NoteForm)

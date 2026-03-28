@@ -7,7 +7,6 @@ User = get_user_model()
 
 
 class BaseNoteTestCase(TestCase):
-    """Общие данные для тестов заметок."""
 
     @classmethod
     def setUpTestData(cls):
