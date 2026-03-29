@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.test import Client
 from django.test import TestCase
 
 from notes.models import Note
@@ -26,3 +27,11 @@ class BaseNoteTestCase(TestCase):
             slug='author-note-slug',
             author=cls.author,
         )
+
+    def setUp(self):
+        super().setUp()
+        self.anonymous_client = Client()
+        self.author_client = Client()
+        self.author_client.force_login(self.author)
+        self.other_client = Client()
+        self.other_client.force_login(self.other)

@@ -24,86 +24,112 @@ def news_home_bulk(db):
         for index in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1)
     ]
     News.objects.bulk_create(all_news)
+    return all_news
 
 
 @pytest.fixture
-def news_detail_setup(db):
-    news = News.objects.create(title='Заголовок', text='Текст')
-    detail_url = reverse('news:detail', args=(news.id,))
-    author = User.objects.create(username='Автор комментариев')
+def news_default(db):
+    return News.objects.create(title='Заголовок', text='Текст')
+
+
+@pytest.fixture
+def news_detail_url(news_default):
+    return reverse('news:detail', args=(news_default.id,))
+
+
+@pytest.fixture
+def user_author_on_detail_page(db):
+    return User.objects.create(username='Автор комментариев')
+
+
+@pytest.fixture
+def comments_chronological_pair(db, news_default, user_author_on_detail_page):
     now = timezone.now()
-    first = Comment.objects.create(
-        news=news,
-        author=author,
+    old_comment = Comment.objects.create(
+        news=news_default,
+        author=user_author_on_detail_page,
         text='Старый комментарий',
     )
-    second = Comment.objects.create(
-        news=news,
-        author=author,
+    new_comment = Comment.objects.create(
+        news=news_default,
+        author=user_author_on_detail_page,
         text='Новый комментарий',
     )
-    Comment.objects.filter(pk=first.pk).update(
+    Comment.objects.filter(pk=old_comment.pk).update(
         created=now - timedelta(hours=2),
     )
-    Comment.objects.filter(pk=second.pk).update(
+    Comment.objects.filter(pk=new_comment.pk).update(
         created=now - timedelta(hours=1),
     )
-    return {
-        'news': news,
-        'detail_url': detail_url,
-        'author': author,
-    }
+    old_comment.refresh_from_db()
+    new_comment.refresh_from_db()
+    return [old_comment, new_comment]
 
 
 @pytest.fixture
-def news_comment_context(db):
-    news = News.objects.create(title='Заголовок', text='Текст')
-    user = User.objects.create(username='Мимо Крокодил')
-    url = reverse('news:detail', args=(news.id,))
-    return {'news': news, 'user': user, 'url': url}
+def user_mimo_krokodil(db):
+    return User.objects.create(username='Мимо Крокодил')
 
 
 @pytest.fixture
-def comment_edit_scenario(db):
-    news = News.objects.create(title='Заголовок', text='Текст')
-    news_url = reverse('news:detail', args=(news.id,))
-    author = User.objects.create(username='Автор комментария')
-    reader = User.objects.create(username='Читатель')
-    author_client = Client()
-    author_client.force_login(author)
-    reader_client = Client()
-    reader_client.force_login(reader)
-    comment = Comment.objects.create(
-        news=news,
-        author=author,
+def user_lev_tolstoy(db):
+    return User.objects.create(username='Лев Толстой')
+
+
+@pytest.fixture
+def user_chitatel_prostoy(db):
+    return User.objects.create(username='Читатель простой')
+
+
+@pytest.fixture
+def user_comment_author(db):
+    return User.objects.create(username='Автор комментария')
+
+
+@pytest.fixture
+def user_chitatel(db):
+    return User.objects.create(username='Читатель')
+
+
+@pytest.fixture
+def anonymous_client():
+    return Client()
+
+
+@pytest.fixture
+def mimo_client(user_mimo_krokodil):
+    client = Client()
+    client.force_login(user_mimo_krokodil)
+    return client
+
+
+@pytest.fixture
+def comment_author_client(user_comment_author):
+    client = Client()
+    client.force_login(user_comment_author)
+    return client
+
+
+@pytest.fixture
+def chitatel_client(user_chitatel):
+    client = Client()
+    client.force_login(user_chitatel)
+    return client
+
+
+@pytest.fixture
+def comment_by_lev(db, news_default, user_lev_tolstoy):
+    return Comment.objects.create(
+        news=news_default,
+        author=user_lev_tolstoy,
         text='Текст комментария',
     )
-    return {
-        'news': news,
-        'url_to_comments': news_url + '#comments',
-        'author': author,
-        'reader': reader,
-        'author_client': author_client,
-        'reader_client': reader_client,
-        'comment': comment,
-        'edit_url': reverse('news:edit', args=(comment.id,)),
-        'delete_url': reverse('news:delete', args=(comment.id,)),
-    }
 
 
 @pytest.fixture
-def routes_news_bundle(db):
-    news = News.objects.create(title='Заголовок', text='Текст')
-    author = User.objects.create(username='Лев Толстой')
-    reader = User.objects.create(username='Читатель простой')
-    comment = Comment.objects.create(
-        news=news,
-        author=author,
+def comment_for_edit_flow(db, news_default, user_comment_author):
+    return Comment.objects.create(
+        news=news_default,
+        author=user_comment_author,
         text='Текст комментария',
     )
-    return {
-        'news': news,
-        'author': author,
-        'reader': reader,
-        'comment': comment,
-    }

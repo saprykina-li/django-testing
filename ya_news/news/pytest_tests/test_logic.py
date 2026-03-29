@@ -1,61 +1,91 @@
 from http import HTTPStatus
 
 import pytest
-from django.test import Client
+from django.urls import reverse
 from pytest_django.asserts import assertFormError, assertRedirects
 
 from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
 
+pytestmark = pytest.mark.django_db
+
 COMMENT_TEXT = 'Текст комментария'
 NEW_COMMENT_TEXT = 'Обновлённый комментарий'
+DETAIL_URL_NAME = 'news:detail'
+EDIT_URL_NAME = 'news:edit'
+DELETE_URL_NAME = 'news:delete'
 
 
-@pytest.mark.django_db
-def test_anonymous_user_cant_create_comment(client, news_comment_context):
-    url = news_comment_context['url']
+def test_anonymous_user_cant_create_comment(
+    anonymous_client,
+    news_detail_url,
+):
+    # Arrange
     form_data = {'text': COMMENT_TEXT}
-    client.post(url, data=form_data)
+
+    # Act
+    anonymous_client.post(news_detail_url, data=form_data)
+
+    # Assert
     assert Comment.objects.count() == 0
 
 
-@pytest.mark.django_db
-def test_user_can_create_comment(news_comment_context):
-    news = news_comment_context['news']
-    user = news_comment_context['user']
-    url = news_comment_context['url']
-    auth_client = Client()
-    auth_client.force_login(user)
+def test_user_can_create_comment(
+    news_default,
+    news_detail_url,
+    mimo_client,
+    user_mimo_krokodil,
+):
+    # Arrange
     form_data = {'text': COMMENT_TEXT}
-    response = auth_client.post(url, data=form_data)
-    assertRedirects(response, f'{url}#comments', fetch_redirect_response=False)
+
+    # Act
+    response = mimo_client.post(news_detail_url, data=form_data)
+
+    # Assert
+    assertRedirects(
+        response,
+        f'{news_detail_url}#comments',
+        fetch_redirect_response=False,
+    )
     assert Comment.objects.count() == 1
     comment = Comment.objects.get()
     assert comment.text == COMMENT_TEXT
-    assert comment.news == news
-    assert comment.author == user
+    assert comment.news == news_default
+    assert comment.author == user_mimo_krokodil
 
 
-@pytest.mark.django_db
-def test_user_cant_use_bad_words(news_comment_context):
-    user = news_comment_context['user']
-    url = news_comment_context['url']
-    auth_client = Client()
-    auth_client.force_login(user)
+def test_user_cant_use_bad_words(
+    news_detail_url,
+    mimo_client,
+):
+    # Arrange
     bad_words_data = {
         'text': f'Какой-то текст, {BAD_WORDS[0]}, еще текст',
     }
-    response = auth_client.post(url, data=bad_words_data)
+
+    # Act
+    response = mimo_client.post(news_detail_url, data=bad_words_data)
+
+    # Assert
     assertFormError(response.context['form'], 'text', WARNING)
     assert Comment.objects.count() == 0
 
 
-@pytest.mark.django_db
-def test_author_can_delete_comment(comment_edit_scenario):
-    author_client = comment_edit_scenario['author_client']
-    delete_url = comment_edit_scenario['delete_url']
-    url_to_comments = comment_edit_scenario['url_to_comments']
-    response = author_client.delete(delete_url)
+def test_author_can_delete_comment(
+    news_default,
+    comment_for_edit_flow,
+    comment_author_client,
+):
+    # Arrange
+    delete_url = reverse(DELETE_URL_NAME, args=(comment_for_edit_flow.id,))
+    url_to_comments = (
+        reverse(DETAIL_URL_NAME, args=(news_default.id,)) + '#comments'
+    )
+    # Act
+    response = comment_author_client.delete(delete_url)
+
+    # Assert
     assertRedirects(
         response,
         url_to_comments,
@@ -65,44 +95,61 @@ def test_author_can_delete_comment(comment_edit_scenario):
     assert Comment.objects.count() == 0
 
 
-@pytest.mark.django_db
-def test_user_cant_delete_comment_of_another_user(comment_edit_scenario):
-    reader_client = comment_edit_scenario['reader_client']
-    delete_url = comment_edit_scenario['delete_url']
-    comment = comment_edit_scenario['comment']
-    author = comment_edit_scenario['author']
-    reader_client.delete(delete_url)
+def test_user_cant_delete_comment_of_another_user(
+    comment_for_edit_flow,
+    user_comment_author,
+    chitatel_client,
+):
+    # Arrange
+    delete_url = reverse(DELETE_URL_NAME, args=(comment_for_edit_flow.id,))
+    # Act
+    chitatel_client.delete(delete_url)
+
+    # Assert
     assert Comment.objects.count() == 1
-    comment.refresh_from_db()
-    assert comment.text == COMMENT_TEXT
-    assert comment.author == author
+    comment_for_edit_flow.refresh_from_db()
+    assert comment_for_edit_flow.text == COMMENT_TEXT
+    assert comment_for_edit_flow.author == user_comment_author
 
 
-@pytest.mark.django_db
-def test_author_can_edit_comment(comment_edit_scenario):
-    author_client = comment_edit_scenario['author_client']
-    edit_url = comment_edit_scenario['edit_url']
-    url_to_comments = comment_edit_scenario['url_to_comments']
-    comment = comment_edit_scenario['comment']
+def test_author_can_edit_comment(
+    news_default,
+    comment_for_edit_flow,
+    comment_author_client,
+):
+    # Arrange
+    edit_url = reverse(EDIT_URL_NAME, args=(comment_for_edit_flow.id,))
+    url_to_comments = (
+        reverse(DETAIL_URL_NAME, args=(news_default.id,)) + '#comments'
+    )
     form_data = {'text': NEW_COMMENT_TEXT}
-    response = author_client.post(edit_url, data=form_data)
+
+    # Act
+    response = comment_author_client.post(edit_url, data=form_data)
+
+    # Assert
     assertRedirects(
         response,
         url_to_comments,
         fetch_redirect_response=False,
     )
-    comment.refresh_from_db()
-    assert comment.text == NEW_COMMENT_TEXT
+    comment_for_edit_flow.refresh_from_db()
+    assert comment_for_edit_flow.text == NEW_COMMENT_TEXT
 
 
-@pytest.mark.django_db
-def test_user_cant_edit_comment_of_another_user(comment_edit_scenario):
-    reader_client = comment_edit_scenario['reader_client']
-    edit_url = comment_edit_scenario['edit_url']
-    comment = comment_edit_scenario['comment']
-    author = comment_edit_scenario['author']
+def test_user_cant_edit_comment_of_another_user(
+    comment_for_edit_flow,
+    user_comment_author,
+    chitatel_client,
+):
+    # Arrange
+    edit_url = reverse(EDIT_URL_NAME, args=(comment_for_edit_flow.id,))
     form_data = {'text': NEW_COMMENT_TEXT}
-    reader_client.post(edit_url, data=form_data)
-    comment.refresh_from_db()
-    assert comment.text == COMMENT_TEXT
-    assert comment.author == author
+
+    # Act
+    chitatel_client.post(edit_url, data=form_data)
+
+    # Assert
+    comment_for_edit_flow.refresh_from_db()
+    assert comment_for_edit_flow.text == COMMENT_TEXT
+    assert comment_for_edit_flow.author == user_comment_author
