@@ -64,7 +64,8 @@ class NewsComment(
 
     def get_success_url(self):
         post = self.get_object()
-        return reverse('news:detail', kwargs={'pk': post.pk}) + '#comments'
+        detail_url = reverse('news:detail', kwargs={'pk': post.pk})
+        return f'{detail_url}#comments'
 
 
 class NewsDetailView(generic.View):
@@ -84,9 +85,11 @@ class CommentBase(LoginRequiredMixin):
 
     def get_success_url(self):
         comment = self.get_object()
-        return reverse(
-            'news:detail', kwargs={'pk': comment.news.pk}
-        ) + '#comments'
+        detail_url = reverse(
+            'news:detail',
+            kwargs={'pk': comment.news.pk},
+        )
+        return f'{detail_url}#comments'
 
     def get_queryset(self):
         """Пользователь может работать только со своими комментариями."""

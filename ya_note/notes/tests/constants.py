@@ -17,6 +17,8 @@ NEW_NOTE_SLUG = 'new-note-slug'
 ANON_ATTEMPT_SLUG = 'anon-attempt'
 DUPLICATE_SLUG = 'duplicate-slug'
 
+NOTE_SLUG_KWARGS = {'slug': NOTE_SLUG}
+
 NEW_TITLE = 'Новая заметка'
 NEW_TEXT = 'Описание'
 ANON_TITLE = 'Попытка'
@@ -31,7 +33,13 @@ DUPLICATE_SECOND_TEXT = 'Другой текст'
 SLUGIFIED_TITLE = 'Транслит заголовка'
 FOREIGN_NOTE_TITLE = 'Чужая заметка'
 
+HOME_URL = reverse(HOME_VIEW)
 ADD_URL = reverse(ADD_VIEW)
 LIST_URL = reverse(LIST_VIEW)
 SUCCESS_URL = reverse(SUCCESS_VIEW)
 LOGIN_URL = reverse(LOGIN_VIEW)
+SIGNUP_URL = reverse(SIGNUP_VIEW)
+LOGOUT_URL = reverse(LOGOUT_VIEW)
+NOTE_DETAIL_URL = reverse(DETAIL_VIEW, kwargs=NOTE_SLUG_KWARGS)
+NOTE_EDIT_URL = reverse(EDIT_VIEW, kwargs=NOTE_SLUG_KWARGS)
+NOTE_DELETE_URL = reverse(DELETE_VIEW, kwargs=NOTE_SLUG_KWARGS)

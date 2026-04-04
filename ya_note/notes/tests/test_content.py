@@ -1,18 +1,15 @@
 from http import HTTPStatus
 
-from django.urls import reverse
-
 from notes.models import Note
 from notes.forms import NoteForm
 from notes.tests.base import BaseNoteTestCase
-from notes.tests.common import (
+from notes.tests.constants import (
     ADD_URL,
-    EDIT_VIEW,
+    DEFAULT_TEXT,
     FOREIGN_NOTE_TITLE,
     FOREIGN_SLUG,
     LIST_URL,
-    NOTE_SLUG,
-    DEFAULT_TEXT,
+    NOTE_EDIT_URL,
 )
 
 
@@ -47,8 +44,7 @@ class TestContent(BaseNoteTestCase):
         self.assertIsInstance(response.context['form'], NoteForm)
 
     def test_edit_page_has_form_in_context(self):
-        edit_url = reverse(EDIT_VIEW, kwargs={'slug': NOTE_SLUG})
-        response = self.author_client.get(edit_url)
+        response = self.author_client.get(NOTE_EDIT_URL)
 
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertIsInstance(response.context['form'], NoteForm)

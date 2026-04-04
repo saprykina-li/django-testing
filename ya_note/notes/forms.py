@@ -25,5 +25,5 @@ class NoteForm(forms.ModelForm):
         if Note.objects.filter(
                 slug=slug
         ).exclude(id=self.instance.pk).exists():
-            raise ValidationError(slug + WARNING)
+            raise ValidationError(f'{slug}{WARNING}')
         return slug

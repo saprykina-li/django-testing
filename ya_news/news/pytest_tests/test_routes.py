@@ -1,96 +1,87 @@
 from http import HTTPStatus
 
 import pytest
-from django.test import Client
-from django.urls import reverse
 from pytest_lazyfixture import lazy_fixture
 from pytest_django.asserts import assertRedirects
 
+from news.pytest_tests.common import (
+    HOME_URL,
+    LOGIN_URL,
+    LOGOUT_URL,
+    SIGNUP_URL,
+)
+
 pytestmark = pytest.mark.django_db
 
-HOME_URL_NAME = 'news:home'
-DETAIL_URL_NAME = 'news:detail'
-LOGIN_URL = reverse('users:login')
-SIGNUP_URL = reverse('users:signup')
-LOGOUT_URL = reverse('users:logout')
-EDIT_URL_NAME = 'news:edit'
-DELETE_URL_NAME = 'news:delete'
 
+def test_home_available_to_anonymous(anonymous_client):
+    url = HOME_URL
 
-def test_home_available_to_anonymous(client):
-    # Arrange
-    url = reverse(HOME_URL_NAME)
+    response = anonymous_client.get(url)
 
-    # Act
-    response = client.get(url)
-
-    # Assert
     assert response.status_code == HTTPStatus.OK
 
 
-def test_detail_available_to_anonymous(client, news_default):
-    # Arrange
-    url = reverse(DETAIL_URL_NAME, args=(news_default.id,))
+def test_detail_available_to_anonymous(anonymous_client, news_detail_url):
+    url = news_detail_url
 
-    # Act
-    response = client.get(url)
+    response = anonymous_client.get(url)
 
-    # Assert
     assert response.status_code == HTTPStatus.OK
 
 
 @pytest.mark.parametrize('url', (LOGIN_URL, SIGNUP_URL, LOGOUT_URL))
-def test_auth_pages_available_to_anonymous(client, url):
-    # Act
-    response = client.get(url)
+def test_auth_pages_available_to_anonymous(anonymous_client, url):
+    response = anonymous_client.get(url)
 
-    # Assert
     assert response.status_code == HTTPStatus.OK
 
 
 @pytest.mark.parametrize(
-    ('user', 'viewname', 'expected'),
+    ('auth_client', 'url', 'expected'),
     (
-        (lazy_fixture('user_lev_tolstoy'), EDIT_URL_NAME, HTTPStatus.OK),
-        (lazy_fixture('user_lev_tolstoy'), DELETE_URL_NAME, HTTPStatus.OK),
         (
-            lazy_fixture('user_chitatel_prostoy'),
-            EDIT_URL_NAME,
+            lazy_fixture('user_comment_owner_client'),
+            lazy_fixture('comment_by_owner_edit_url'),
+            HTTPStatus.OK,
+        ),
+        (
+            lazy_fixture('user_comment_owner_client'),
+            lazy_fixture('comment_by_owner_delete_url'),
+            HTTPStatus.OK,
+        ),
+        (
+            lazy_fixture('user_other_reader_client'),
+            lazy_fixture('comment_by_owner_edit_url'),
             HTTPStatus.NOT_FOUND,
         ),
         (
-            lazy_fixture('user_chitatel_prostoy'),
-            DELETE_URL_NAME,
+            lazy_fixture('user_other_reader_client'),
+            lazy_fixture('comment_by_owner_delete_url'),
             HTTPStatus.NOT_FOUND,
         ),
     ),
 )
 def test_availability_for_comment_edit_and_delete(
-    comment_by_lev,
-    user,
-    viewname,
+    auth_client,
+    url,
     expected,
 ):
-    # Arrange
-    auth_client = Client()
-    auth_client.force_login(user)
-    url = reverse(viewname, args=(comment_by_lev.id,))
-
-    # Act
     response = auth_client.get(url)
 
-    # Assert
     assert response.status_code == expected
 
 
-@pytest.mark.parametrize('viewname', (EDIT_URL_NAME, DELETE_URL_NAME))
-def test_redirect_for_anonymous_client(client, comment_by_lev, viewname):
-    # Arrange
-    url = reverse(viewname, args=(comment_by_lev.id,))
+@pytest.mark.parametrize(
+    'url',
+    (
+        lazy_fixture('comment_by_owner_edit_url'),
+        lazy_fixture('comment_by_owner_delete_url'),
+    ),
+)
+def test_redirect_for_anonymous_client(anonymous_client, url):
     redirect_url = f'{LOGIN_URL}?next={url}'
 
-    # Act
-    response = client.get(url)
+    response = anonymous_client.get(url)
 
-    # Assert
     assertRedirects(response, redirect_url, fetch_redirect_response=False)

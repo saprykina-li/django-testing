@@ -9,7 +9,27 @@ from django.utils import timezone
 
 from news.models import Comment, News
 
+from news.pytest_tests.common import (
+    NEWS_COMMENT_DELETE_URL_NAME,
+    NEWS_COMMENT_EDIT_URL_NAME,
+    NEWS_DETAIL_URL_NAME,
+)
+
 User = get_user_model()
+
+
+def _comment_delete_url(comment):
+    return reverse(
+        NEWS_COMMENT_DELETE_URL_NAME,
+        args=(comment.pk,),
+    )
+
+
+def _comment_edit_url(comment):
+    return reverse(
+        NEWS_COMMENT_EDIT_URL_NAME,
+        args=(comment.pk,),
+    )
 
 
 @pytest.fixture
@@ -34,12 +54,48 @@ def news_default(db):
 
 @pytest.fixture
 def news_detail_url(news_default):
-    return reverse('news:detail', args=(news_default.id,))
+    return reverse(NEWS_DETAIL_URL_NAME, args=(news_default.id,))
+
+
+@pytest.fixture
+def news_detail_comments_url(news_default):
+    detail_url = reverse(
+        NEWS_DETAIL_URL_NAME,
+        args=(news_default.id,),
+    )
+    return f'{detail_url}#comments'
+
+
+@pytest.fixture
+def comment_edit_url(comment_for_edit_flow):
+    return _comment_edit_url(comment_for_edit_flow)
+
+
+@pytest.fixture
+def comment_delete_url(comment_for_edit_flow):
+    return _comment_delete_url(comment_for_edit_flow)
+
+
+@pytest.fixture
+def comment_by_owner_edit_url(comment_by_owner):
+    return _comment_edit_url(comment_by_owner)
+
+
+@pytest.fixture
+def comment_by_owner_delete_url(comment_by_owner):
+    return _comment_delete_url(comment_by_owner)
 
 
 @pytest.fixture
 def user_author_on_detail_page(db):
     return User.objects.create(username='Автор комментариев')
+
+
+@pytest.fixture
+def user_author_on_detail_page_client(user_author_on_detail_page):
+    client = Client()
+    client.force_login(user_author_on_detail_page)
+    return client
 
 
 @pytest.fixture
@@ -67,28 +123,28 @@ def comments_chronological_pair(db, news_default, user_author_on_detail_page):
 
 
 @pytest.fixture
-def user_mimo_krokodil(db):
-    return User.objects.create(username='Мимо Крокодил')
+def user_comment_creator(db):
+    return User.objects.create(username='Comment Creator')
 
 
 @pytest.fixture
-def user_lev_tolstoy(db):
-    return User.objects.create(username='Лев Толстой')
+def user_comment_owner(db):
+    return User.objects.create(username='Comment Owner')
 
 
 @pytest.fixture
-def user_chitatel_prostoy(db):
-    return User.objects.create(username='Читатель простой')
+def user_other_reader(db):
+    return User.objects.create(username='Other Reader')
 
 
 @pytest.fixture
 def user_comment_author(db):
-    return User.objects.create(username='Автор комментария')
+    return User.objects.create(username='Comment Author')
 
 
 @pytest.fixture
-def user_chitatel(db):
-    return User.objects.create(username='Читатель')
+def user_reader(db):
+    return User.objects.create(username='Reader')
 
 
 @pytest.fixture
@@ -97,9 +153,9 @@ def anonymous_client():
 
 
 @pytest.fixture
-def mimo_client(user_mimo_krokodil):
+def comment_creator_client(user_comment_creator):
     client = Client()
-    client.force_login(user_mimo_krokodil)
+    client.force_login(user_comment_creator)
     return client
 
 
@@ -111,17 +167,31 @@ def comment_author_client(user_comment_author):
 
 
 @pytest.fixture
-def chitatel_client(user_chitatel):
+def reader_client(user_reader):
     client = Client()
-    client.force_login(user_chitatel)
+    client.force_login(user_reader)
     return client
 
 
 @pytest.fixture
-def comment_by_lev(db, news_default, user_lev_tolstoy):
+def user_comment_owner_client(user_comment_owner):
+    client = Client()
+    client.force_login(user_comment_owner)
+    return client
+
+
+@pytest.fixture
+def user_other_reader_client(user_other_reader):
+    client = Client()
+    client.force_login(user_other_reader)
+    return client
+
+
+@pytest.fixture
+def comment_by_owner(db, news_default, user_comment_owner):
     return Comment.objects.create(
         news=news_default,
-        author=user_lev_tolstoy,
+        author=user_comment_owner,
         text='Текст комментария',
     )
 

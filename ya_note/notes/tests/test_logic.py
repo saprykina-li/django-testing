@@ -2,29 +2,27 @@ from http import HTTPStatus
 
 from pytils.translit import slugify
 
-from django.urls import reverse
-
 from notes.models import Note
 from notes.tests.base import BaseNoteTestCase
-from notes.tests.common import (
+from notes.tests.constants import (
     ADD_URL,
     ANON_ATTEMPT_SLUG,
     ANON_TITLE,
     DEFAULT_TEXT,
-    DELETE_VIEW,
     DUPLICATE_FIRST_TITLE,
     DUPLICATE_SECOND_TEXT,
     DUPLICATE_SECOND_TITLE,
     DUPLICATE_SLUG,
     EDITED_TEXT,
     EDITED_TITLE,
-    EDIT_VIEW,
     FOREIGN_EDIT_TEXT,
     FOREIGN_EDIT_TITLE,
     LOGIN_URL,
     NEW_NOTE_SLUG,
     NEW_TEXT,
     NEW_TITLE,
+    NOTE_DELETE_URL,
+    NOTE_EDIT_URL,
     NOTE_SLUG,
     SLUGIFIED_TITLE,
     SUCCESS_URL,
@@ -89,14 +87,13 @@ class TestLogic(BaseNoteTestCase):
         self.assertEqual(note.slug, slugify(title)[:100])
 
     def test_author_can_edit_own_note(self):
-        edit_url = reverse(EDIT_VIEW, kwargs={'slug': NOTE_SLUG})
         form_data = {
             'title': EDITED_TITLE,
             'text': EDITED_TEXT,
             'slug': NOTE_SLUG,
         }
 
-        response = self.author_client.post(edit_url, data=form_data)
+        response = self.author_client.post(NOTE_EDIT_URL, data=form_data)
 
         self.assertRedirects(
             response,
@@ -107,9 +104,7 @@ class TestLogic(BaseNoteTestCase):
         self.assertEqual(self.note.title, EDITED_TITLE)
 
     def test_author_can_delete_own_note(self):
-        delete_url = reverse(DELETE_VIEW, kwargs={'slug': NOTE_SLUG})
-
-        response = self.author_client.post(delete_url)
+        response = self.author_client.post(NOTE_DELETE_URL)
 
         self.assertRedirects(
             response,
@@ -119,7 +114,6 @@ class TestLogic(BaseNoteTestCase):
         self.assertFalse(Note.objects.filter(pk=self.note.pk).exists())
 
     def test_foreign_user_post_edit_does_not_change_note_in_db(self):
-        edit_url = reverse(EDIT_VIEW, kwargs={'slug': NOTE_SLUG})
         original_title = self.note.title
         original_text = self.note.text
         form_data = {
@@ -128,19 +122,18 @@ class TestLogic(BaseNoteTestCase):
             'slug': NOTE_SLUG,
         }
 
-        self.other_client.post(edit_url, data=form_data)
+        self.other_client.post(NOTE_EDIT_URL, data=form_data)
 
         self.note.refresh_from_db()
         self.assertEqual(self.note.title, original_title)
         self.assertEqual(self.note.text, original_text)
 
     def test_foreign_user_post_delete_does_not_remove_note_from_db(self):
-        delete_url = reverse(DELETE_VIEW, kwargs={'slug': NOTE_SLUG})
         note_pk = self.note.pk
         expected_title = self.note.title
         expected_author = self.author
 
-        self.other_client.post(delete_url)
+        self.other_client.post(NOTE_DELETE_URL)
 
         self.assertTrue(Note.objects.filter(pk=note_pk).exists())
         note = Note.objects.get(pk=note_pk)
