@@ -8,7 +8,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from news.models import Comment, News
-
 from news.pytest_tests.common import (
     NEWS_COMMENT_DELETE_URL_NAME,
     NEWS_COMMENT_EDIT_URL_NAME,

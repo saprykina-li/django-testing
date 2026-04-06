@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
-from notes.models import Note
 from notes.forms import NoteForm
+from notes.models import Note
 from notes.tests.base import BaseNoteTestCase
 from notes.tests.constants import (
     ADD_URL,

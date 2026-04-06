@@ -12,8 +12,8 @@ def test_news_count(anonymous_client, news_home_bulk):
     url = HOME_URL
 
     response = anonymous_client.get(url)
-
     object_list = response.context['object_list']
+
     assert len(news_home_bulk) == expected_count + 1
     assert object_list.count() == expected_count
 
@@ -23,9 +23,9 @@ def test_news_order(anonymous_client, news_home_bulk):
     url = HOME_URL
 
     response = anonymous_client.get(url)
-
     object_list = response.context['object_list']
     all_dates = [news.date for news in object_list]
+
     assert all_dates == sorted(all_dates, reverse=True)
     assert object_list[0].date == expected_first_date
 
@@ -35,17 +35,17 @@ def test_comments_order(
     news_detail_url,
     comments_chronological_pair,
 ):
-    expected_comments = comments_chronological_pair
     url = news_detail_url
 
     response = anonymous_client.get(url)
-
     news = response.context['news']
     all_comments = list(news.comment_set.all())
-    assert [comment.pk for comment in all_comments] == [
-        expected_comment.pk for expected_comment in expected_comments
-    ]
     all_timestamps = [comment.created for comment in all_comments]
+
+    assert [comment.pk for comment in all_comments] == [
+        expected_comment.pk
+        for expected_comment in comments_chronological_pair
+    ]
     assert all_timestamps == sorted(all_timestamps)
 
 
